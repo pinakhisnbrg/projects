@@ -49,7 +49,7 @@ export default async function handler(req,res){
  const action=String(req.query.action||'');
  try{
  if(action==='design'&&req.method==='GET'){
-   let d=defaults;try{const rows=await database('site_settings?key=eq.homepage&select=value');if(rows.length)d=sanitizeDesign(rows[0].value);}catch(e){if(process.env.SUPABASE_URL)throw e;}
+   let d=defaults;if(process.env.SUPABASE_URL&&process.env.SUPABASE_SERVICE_ROLE_KEY){const rows=await database('site_settings?key=eq.homepage&select=value');if(rows.length)d=sanitizeDesign(rows[0].value);}
    return send(res,200,{design:d});
  }
  if(action==='design'&&req.method==='POST'){
