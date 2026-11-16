@@ -82,6 +82,11 @@ export default async function handler(req,res){
    const ps=await database('guest_passes?select=slot,guest_name&invitation_id=eq.'+inv.id+'&active=eq.true&order=slot.asc');
    return send(res,200,{passes:ps});
  }
+ if(action==='demo-qr'&&req.method==='GET'){
+   // This is deliberately NOT a check-in credential. It can be used to preview a pass safely.
+   const png=await QRCode.toBuffer('DEMO-ONLY-NOT-VALID-FOR-ENTRY',{type:'png',margin:3,width:550,errorCorrectionLevel:'H',color:{dark:'#781C2A',light:'#FFFFFF'}});
+   res.setHeader('Content-Type','image/png');res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');return res.status(200).end(png);
+ }
  if(action==='qr'&&req.method==='GET'){
    const token=req.query.invite,slot=Number(req.query.slot);
    if(!validToken(token)||!Number.isInteger(slot)||slot<1||slot>30)return send(res,400,{error:'Invalid ticket'});
@@ -90,8 +95,14 @@ export default async function handler(req,res){
    if(r[0]?.status!=='yes')return send(res,403,{error:'RSVP required'});
    const ps=await database('guest_passes?select=checkin_code&invitation_id=eq.'+inv.id+'&slot=eq.'+slot+'&active=eq.true');
    if(!ps.length)return send(res,404,{error:'Ticket not found'});
-   const svg=await QRCode.toString('PS-WEDDING:'+ps[0].checkin_code,{type:'svg',margin:2,width:440,color:{dark:'#781C2A',light:'#FFFFFF'}});
-   res.setHeader('Content-Type','image/svg+xml');res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');return res.status(200).end(svg);
+   const code='PS-WEDDING:'+ps[0].checkin_code;
+   const options={margin:3,width:550,errorCorrectionLevel:'H',color:{dark:'#781C2A',light:'#FFFFFF'}};
+   if(req.query.format==='svg'){
+     const svg=await QRCode.toString(code,{...options,type:'svg'});
+     res.setHeader('Content-Type','image/svg+xml');res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');return res.status(200).end(svg);
+   }
+   const png=await QRCode.toBuffer(code,{...options,type:'png'});
+   res.setHeader('Content-Type','image/png');res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');return res.status(200).end(png);
  }
  if(action==='admin'&&req.method==='GET'){
    if(noAdmin(req,res))return;
