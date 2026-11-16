@@ -2,7 +2,7 @@
   <div class="cover-heading"><span>SAVE</span><em>the</em><span>DATE</span></div>
   <img class="cover-monogram" src="/monogram.svg" alt="Sakshi and Pinak floral monogram">
   <div class="cover-names" id="coverNames">Sakshi &amp; Pinak</div>
-  <div class="cover-date" aria-label="27 January 2027"><span>27</span><span class="cover-heart">♥</span><span>01</span><span class="cover-heart">♥</span><span>27</span></div>
+  <div class="cover-date" aria-label="27 January 2027"><span id="coverDay">27</span><span class="cover-heart">♥</span><span id="coverMonth">01</span><span class="cover-heart">♥</span><span id="coverYear">27</span></div>
   <div class="cover-location" id="coverLocation">27th January 2027&nbsp; | &nbsp;Chh. Sambhajinagar</div>
   <a class="cover-rsvp-cta" href="#rsvp">Kindly RSVP <span aria-hidden="true">↓</span></a>
 </section>
@@ -13,7 +13,11 @@ const coverDesign=await design();
 document.documentElement.style.setProperty('--burgundy',coverDesign.color||'#781C2A');
 document.documentElement.style.setProperty('--paper',coverDesign.paper||'#F8ECD7');
 document.getElementById('coverNames').textContent=coverDesign.couple||'Sakshi & Pinak';
-document.getElementById('coverLocation').textContent='27th January 2027  |  '+(coverDesign.location||'Chh. Sambhajinagar');
+const dateText=coverDesign.date||'27 January 2027';
+const m=/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/.exec(dateText.trim());
+const months=['january','february','march','april','may','june','july','august','september','october','november','december'];
+if(m&&months.includes(m[2].toLowerCase())){document.getElementById('coverDay').textContent=m[1].padStart(2,'0');document.getElementById('coverMonth').textContent=String(months.indexOf(m[2].toLowerCase())+1).padStart(2,'0');document.getElementById('coverYear').textContent=m[3].slice(-2)}
+document.getElementById('coverLocation').textContent=dateText+'  |  '+(coverDesign.location||'Chh. Sambhajinagar');
 const token=new URLSearchParams(location.search).get('invite')||'';
 const demo=!token;let adults=1,children=0,limit=1,oldNames=[];
 const msg=(s,bad=false)=>{$('message').classList.remove('hide');$('message').className=bad?'err':'ok';$('message').textContent=s};
