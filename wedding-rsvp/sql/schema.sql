@@ -35,32 +35,38 @@ create table if not exists public.site_settings (
  value jsonb not null,
  updated_at timestamptz not null default now()
 );
--- Atomic household RSVP transaction; guests cannot exceed allocated capacity.
+-- Atomic RSVP transaction. Only service_role may invoke this RPC.
+-- Deactivated ticket slots receive new credentials; RSVP is locked after any check-in.
 create or replace function public.submit_wedding_rsvp(
  p_token text,p_status text,p_adults int,p_children int,p_names jsonb,p_song text
-) returns jsonb language plpgsql security definer set search_path=public as $$
-declare inv public.invitations%rowtype; i int; count_guests int; names jsonb;
+) returns jsonb language plpgsql security definer set search_path = '' as $$
+declare inv public.invitations%rowtype; i int; n int; names jsonb;
 begin
  select * into inv from public.invitations where invite_token=p_token for update;
  if not found then raise exception 'INVALID_INVITATION'; end if;
  if p_status not in ('yes','maybe','no') then raise exception 'INVALID_STATUS'; end if;
  if p_adults is null or p_children is null or p_adults<0 or p_children<0 then raise exception 'INVALID_COUNT'; end if;
- count_guests:=case when p_status='yes' then p_adults+p_children else 0 end;
- if count_guests>inv.allowed_guests or (p_status='yes' and p_adults<1) then raise exception 'GUEST_LIMIT'; end if;
+ n:=case when p_status='yes' then p_adults+p_children else 0 end;
+ if n>inv.allowed_guests or (p_status='yes' and p_adults<1) then raise exception 'GUEST_LIMIT'; end if;
  names:=case when jsonb_typeof(p_names)='array' then p_names else '[]'::jsonb end;
- if p_status='yes' and jsonb_array_length(names)<>count_guests then raise exception 'GUEST_NAMES_REQUIRED'; end if;
+ if p_status='yes' and jsonb_array_length(names)<>n then raise exception 'GUEST_NAMES_REQUIRED'; end if;
+ for i in 0..n-1 loop
+  if jsonb_typeof(names->i)<>'string' or length(trim(names->>i))<1 or length(names->>i)>100 then raise exception 'INVALID_GUEST_NAME'; end if;
+ end loop;
+ if exists (select 1 from public.guest_passes where invitation_id=inv.id and checked_in_at is not null) then raise exception 'RSVP_LOCKED_AFTER_CHECKIN';end if;
  insert into public.rsvps(invitation_id,status,adults,children,guest_names,song)
  values(inv.id,p_status,case when p_status='yes' then p_adults else 0 end,
  case when p_status='yes' then p_children else 0 end,names,left(coalesce(p_song,''),160))
  on conflict(invitation_id) do update set status=excluded.status,adults=excluded.adults,
  children=excluded.children,guest_names=excluded.guest_names,song=excluded.song,updated_at=now();
- update public.guest_passes set active=false where invitation_id=inv.id and slot>count_guests;
- for i in 1..count_guests loop
+ update public.guest_passes set active=false,checkin_code=encode(extensions.gen_random_bytes(24),'hex') where invitation_id=inv.id and slot>n and active=true;
+ for i in 1..n loop
   insert into public.guest_passes(invitation_id,slot,guest_name,checkin_code,active)
-  values(inv.id,i,left(trim(names->>(i-1)),100),encode(gen_random_bytes(24),'hex'),true)
-  on conflict(invitation_id,slot) do update set active=true,guest_name=excluded.guest_name;
+  values(inv.id,i,left(trim(names->>(i-1)),100),encode(extensions.gen_random_bytes(24),'hex'),true)
+  on conflict(invitation_id,slot) do update set active=true,guest_name=excluded.guest_name,
+    checkin_code=case when public.guest_passes.active then public.guest_passes.checkin_code else encode(extensions.gen_random_bytes(24),'hex') end;
  end loop;
- return jsonb_build_object('confirmed',count_guests,'status',p_status);
+ return jsonb_build_object('confirmed',n,'status',p_status);
 end;$$;
 alter table public.invitations enable row level security;
 alter table public.rsvps enable row level security;
