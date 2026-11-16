@@ -22,7 +22,7 @@ async function state(inv){
  const [rs,ps]=await Promise.all([database('rsvps?select=status,adults,children,guest_names&invitation_id=eq.'+inv.id),database('guest_passes?select=slot,guest_name&active=eq.true&invitation_id=eq.'+inv.id+'&order=slot.asc')]);
  return {household:inv.household_name,limit:inv.allowed_guests,rsvp:rs[0]||null,passes:ps};
 }
-const defaults={eyebrow:'PRIVATE INVITATION · 27 JANUARY 2027',headline:'An invitation reserved for you.',couple:'Sakshi & Pinak',subtitle:'A celebration worth keeping secret. Until now.',date:'27 January 2027',location:'Chhatrapati Sambhajinagar',footer:'BY INVITATION ONLY · ADMIT WITH LOVE',confirmText:'Confirm my presence',declineText:'Regretfully decline',color:'#781C2A',paper:'#F8ECD7',accent:'#DDBCA9',layout:'minimal',showSeal:true,logoText:'साक्षी  &  पिनाक'};
+const defaults={eyebrow:'PRIVATE INVITATION · 27 JANUARY 2027',headline:'An invitation reserved for you.',couple:'Sakshi & Pinak',subtitle:'A celebration worth keeping secret. Until now.',date:'27 January 2027',location:'Chhatrapati Sambhajinagar',footer:'BY INVITATION ONLY · ADMIT WITH LOVE',confirmText:'Confirm my presence',declineText:'Regretfully decline',color:'#781C2A',paper:'#F8ECD7',accent:'#DDBCA9',layout:'minimal'};
 function sanitizeDesign(d){
  const out={};for(const k of Object.keys(defaults)){const v=d?.[k];if(typeof defaults[k]==='boolean'){out[k]=typeof v==='boolean'?v:defaults[k];continue;}
  if(k==='layout'){out[k]=['minimal','editorial','centered'].includes(v)?v:defaults[k];continue;}
