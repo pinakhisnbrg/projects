@@ -1,7 +1,115 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Your private wedding access</title><link rel="stylesheet" href="/style.css"></head><body><main class="app"><nav class="topnav"><span class="brand">S & P</span><a href="/">Return to RSVP</a></nav><div class="savebox"><h1>Your private access pass</h1><p class="hint">Save this ticket to Photos or print it. Optional Wallet photo-import depends on your phone.</p><div class="ticket" id="ticket"><div class="micro">PRIVATE CELEBRATION · 2027</div><h2>Sakshi & Pinak</h2><div class="serif" style="font-size:22px">साक्षी  &  पिनाक</div><div class="name" id="guest">Loading…</div><div class="micro">BY INVITATION ONLY</div><img id="qr" alt="Unique scannable check-in QR code"><div class="meta">27 JANUARY 2027</div><div class="meta">CHHATRAPATI SAMBHAJINAGAR</div><div class="micro" style="margin-top:20px">ONE INVITATION · ONE UNFORGETTABLE EVENING</div></div><button id="save">Download PNG ticket</button><button class="secondary" onclick="window.print()">Print ticket</button><p id="status" role="status"></p><p class="hint">Your QR code is unique. Do not forward this ticket.</p></div></main><script type="module">
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Your Wedding QR Pass — Sakshi & Pinak</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+.pass-area{max-width:550px;margin:auto;text-align:center}
+.pass-area h1{font-size:clamp(28px,5vw,42px);margin:16px 0 6px}
+.pass{width:min(400px,100%);margin:24px auto;background:#781c2a;color:#faf0df;border-radius:20px;padding:29px 24px;box-shadow:0 12px 40px #40131d35;overflow:hidden}
+.pass .badge-label{letter-spacing:.22em;text-transform:uppercase;font-size:10px}
+.pass .monogram-ticket{width:148px;height:148px;object-fit:contain;display:block;margin:12px auto}
+.pass .pair{font:32px Georgia,serif;margin:8px 0}
+.pass .guest{font:30px Georgia,serif;margin:17px 0;overflow-wrap:anywhere}
+.pass .qr-wrap{background:#fff;padding:13px;border-radius:13px;display:inline-block;margin:9px auto}
+.pass .qr-wrap img{display:block;width:235px;height:235px;object-fit:contain}
+.pass .eventdate{font:19px Georgia,serif;margin:17px 0 3px}
+.pass .place{font-size:12px;letter-spacing:.08em}
+.demo-stamp{font-weight:800;background:#fff5de;color:#781c2a;border-radius:6px;padding:8px 10px;margin:15px auto;max-width:280px;letter-spacing:.08em;font-size:12px}
+.actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:15px}
+.actions button{min-width:150px}
+@media print{.topnav,.actions,.tip,footer{display:none!important}.pass{box-shadow:none;margin:0 auto;print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+</style>
+</head>
+<body>
+<main class="app">
+<nav class="topnav"><span class="brand">S & P</span><a id="back" href="/">Back to RSVP</a></nav>
+<section class="pass-area">
+<p class="micro muted">THE PRIVATE INVITATION</p>
+<h1>Wedding access pass</h1>
+<p id="instructions" class="hint">One unique QR code per confirmed guest. Show this ticket at the entrance.</p>
+<div class="pass" id="ticket">
+<div class="badge-label">BY INVITATION ONLY</div>
+<img src="/monogram.svg" class="monogram-ticket" alt="Sakshi and Pinak floral wedding monogram" id="monogram">
+<div class="pair">Sakshi & Pinak</div>
+<div class="badge-label">WEDDING · 27 JANUARY 2027</div>
+<div class="guest" id="guest">Loading ticket…</div>
+<div class="qr-wrap"><img id="qr" alt="Guest's unique QR code" crossorigin="anonymous"></div>
+<div id="demoStamp" class="demo-stamp" hidden>DEMO — NOT VALID FOR ENTRY</div>
+<div class="eventdate">Wednesday, 27 January 2027</div>
+<div class="place">CHHATRAPATI SAMBHAJINAGAR</div>
+<div class="badge-label" style="margin-top:20px">ONE CELEBRATION · ONE UNFORGETTABLE DAY</div>
+</div>
+<div class="actions">
+<button id="download" disabled>Download PNG pass</button>
+<button class="secondary" id="share" disabled>Share pass image</button>
+<button class="secondary" id="print" type="button">Print</button>
+</div>
+<p class="hint tip">Save the PNG to Photos on your iPhone or Android device. This is a QR-image pass; native Add to Apple Wallet / Google Wallet is not yet available.</p>
+<p id="status" role="status" class="hint"></p>
+</section>
+<footer>SAKSHI & PINAK · PRIVATE WEDDING PASS</footer>
+</main>
+<script type="module">
 import{$,call}from'/common.js';
-const p=new URLSearchParams(location.search),invite=p.get('invite'),slot=Number(p.get('slot'));
-async function load(){try{const d=await call('passes',{params:{invite}});const guest=d.passes.find(x=>x.slot===slot);if(!guest)throw Error('Ticket not found');$('guest').textContent=guest.guest_name;const r=await fetch('/api/index?action=qr&invite='+encodeURIComponent(invite)+'&slot='+slot);if(!r.ok)throw Error('Could not load QR code');const blob=await r.blob();$('qr').src=URL.createObjectURL(blob)}catch(e){$('status').textContent=e.message}}
-$('save').onclick=()=>{if(!$('qr').complete||!$('qr').naturalWidth){$('status').textContent='QR code not yet loaded';return}const cvs=document.createElement('canvas');cvs.width=800;cvs.height=1180;const c=cvs.getContext('2d');c.fillStyle='#781C2A';c.fillRect(0,0,800,1180);c.fillStyle='#F8ECD7';c.textAlign='center';c.font='bold 20px Arial';c.fillText('PRIVATE CELEBRATION · 2027',400,80);c.font='56px Georgia';c.fillText('Sakshi & Pinak',400,180);c.font='27px Georgia';c.fillText('BY INVITATION ONLY',400,248);c.font='48px Georgia';c.fillText($('guest').textContent.slice(0,29),400,370);c.fillStyle='#fff';c.fillRect(176,418,448,448);c.drawImage($('qr'),200,442,400,400);c.fillStyle='#F8ECD7';c.font='27px Georgia';c.fillText('27 JANUARY 2027',400,955);c.font='22px Arial';c.fillText('CHHATRAPATI SAMBHAJINAGAR',400,1015);c.font='16px Arial';c.fillText('SAKSHI & PINAK · PRIVATE WEDDING',400,1115);const a=document.createElement('a');a.href=cvs.toDataURL('image/png');a.download='wedding-pass-'+slot+'.png';a.click()};
+const params=new URLSearchParams(location.search);
+const invite=params.get('invite')||'',slot=Number(params.get('slot'));
+const demo=params.get('demo')==='1';
+let imageBlob=null;
+const status=(text,bad=false)=>{ $('status').textContent=text;$('status').className=bad?'err':'ok' };
+const image=(src)=>new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=reject;i.src=src});
+$('print').onclick=()=>window.print();
+$('back').href=demo?'/':'/?invite='+encodeURIComponent(invite);
+async function load(){
+ try{
+  if(demo){
+   $('guest').textContent=(params.get('name')||'Sample Guest').slice(0,80);
+   $('demoStamp').hidden=false;
+   $('instructions').textContent='Preview only. No guest credentials are issued or saved.';
+  }else{
+   if(!/^[a-f0-9]{48,64}$/i.test(invite)||!Number.isInteger(slot)||slot<1||slot>30)throw Error('Open this ticket from your confirmed RSVP link.');
+   const d=await call('passes',{params:{invite}});
+   const guest=d.passes.find(p=>p.slot===slot);
+   if(!guest)throw Error('This guest does not have an active ticket.');
+   $('guest').textContent=guest.guest_name;
+  }
+  const url=demo?'/api/index?action=demo-qr':'/api/index?action=qr&format=png&invite='+encodeURIComponent(invite)+'&slot='+slot;
+  const res=await fetch(url,{cache:'no-store'});
+  if(!res.ok)throw Error('QR generation failed. Try reopening the RSVP.');
+  imageBlob=await res.blob();
+  $('qr').src=URL.createObjectURL(imageBlob);
+  await image($('qr').src);
+  $('download').disabled=false;
+  $('share').disabled=!(navigator.share&&navigator.canShare);
+  status(demo?'Preview ready. This code cannot be used at the wedding.':'Your personalized entry pass is ready.');
+ }catch(e){status(e.message||'Unable to load ticket.',true)}
+}
+const drawText=(ctx,txt,y,font,max=710)=>{ctx.font=font;let str=String(txt);while(ctx.measureText(str).width>max&&str.length>1)str=str.slice(0,-2)+'…';ctx.fillText(str,450,y)};
+async function createPNG(){
+ const canvas=document.createElement('canvas');canvas.width=900;canvas.height=1500;const ctx=canvas.getContext('2d');
+ ctx.fillStyle='#781C2A';ctx.fillRect(0,0,900,1500);ctx.textAlign='center';ctx.fillStyle='#FAF0DF';
+ drawText(ctx,'BY INVITATION ONLY',96,'bold 22px Arial');
+ const brand=await image('/monogram.svg');ctx.drawImage(brand,310,128,280,280);
+ drawText(ctx,'Sakshi & Pinak',470,'58px Georgia');
+ drawText(ctx,'WEDDING · 27 JANUARY 2027',532,'bold 20px Arial');
+ drawText(ctx,$('guest').textContent,650,'50px Georgia');
+ ctx.fillStyle='#FFFFFF';ctx.beginPath();ctx.roundRect(225,699,450,450,22);ctx.fill();
+ ctx.drawImage($('qr'),252,726,396,396);
+ ctx.fillStyle='#FAF0DF';
+ if(demo){ctx.fillStyle='#F7DFBA';ctx.fillRect(238,1168,424,49);ctx.fillStyle='#781C2A';drawText(ctx,'DEMO — NOT VALID FOR ENTRY',1200,'bold 22px Arial');ctx.fillStyle='#FAF0DF'}
+ drawText(ctx,'Wednesday, 27 January 2027',1290,'34px Georgia');
+ drawText(ctx,'CHHATRAPATI SAMBHAJINAGAR',1340,'bold 20px Arial');
+ drawText(ctx,'ONE CELEBRATION · ONE UNFORGETTABLE DAY',1443,'18px Arial');
+ return new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('Could not render PNG')),'image/png'));
+}
+function filename(){return (demo?'demo-':'')+'sakshi-pinak-wedding-pass-'+(demo?'sample':slot)+'.png'}
+function download(blob){const a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download=filename();a.click();setTimeout(()=>URL.revokeObjectURL(url),5000)}
+$('download').onclick=async()=>{try{$('download').disabled=true;const b=await createPNG();download(b);status('PNG downloaded. Keep your QR pass private.')}catch(e){status('Could not save PNG: '+(e.message||e),true)}finally{$('download').disabled=false}};
+$('share').onclick=async()=>{try{const b=await createPNG(),file=new File([b],filename(),{type:'image/png'});if(navigator.canShare?.({files:[file]}))await navigator.share({files:[file],title:'Sakshi & Pinak wedding pass'});else download(b)}catch(e){if(e.name!=='AbortError')status('Sharing unavailable. Use Download PNG instead.',true)}};
 load();
-</script></body></html>
+</script>
+</body>
+</html>
