@@ -10,7 +10,7 @@ const appURL=()=>String(process.env.APP_BASE_URL||'').replace(/\/$/,'');
 async function database(path,method='GET',data=null){
  const url=process.env.SUPABASE_URL,key=process.env.SUPABASE_SERVICE_ROLE_KEY;
  if(!url||!key)throw new Error('Database not configured');
- const r=await fetch(url.replace(/\/$/,'')+'/rest/v1/'+path,{method,headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json',Prefer:'return=representation'},body:data===null?undefined:JSON.stringify(data),cache:'no-store'});
+ const r=await fetch(url.replace(/\/$/,'')+'/rest/v1/'+path,{method,headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json',Prefer:'return=representation,resolution=merge-duplicates'},body:data===null?undefined:JSON.stringify(data),cache:'no-store'});
  const raw=await r.text();let j;try{j=JSON.parse(raw)}catch{j=raw}
  if(!r.ok)throw new Error(j?.message||'Database error '+r.status);return j;
 }
