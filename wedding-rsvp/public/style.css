@@ -2,7 +2,7 @@
 
 /* Save-the-Date cover: deep textured burgundy and refined classic invitation typography. */
 html{scroll-behavior:smooth}
-.save-date-cover{--cover-paper:#f9e8d2;position:relative;isolation:isolate;min-height:min(1250px,112vw);background:var(--burgundy);color:var(--cover-paper);display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:space-evenly;gap:18px;padding:60px 38px 65px;overflow:hidden;border-radius:2px;box-shadow:0 20px 60px #43121920}
+.save-date-cover{--cover-paper:var(--paper);position:relative;isolation:isolate;min-height:min(1250px,112vw);background:var(--burgundy);color:var(--cover-paper);display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:space-evenly;gap:18px;padding:60px 38px 65px;overflow:hidden;border-radius:2px;box-shadow:0 20px 60px #43121920}
 .save-date-cover::before{content:"";pointer-events:none;position:absolute;inset:0;z-index:-1;background:radial-gradient(ellipse at 50% 40%,transparent 15%,#25020925 105%),repeating-linear-gradient(70deg,#ffffff05 0px,transparent 2px,#00000005 4px,transparent 8px);opacity:.5}
 .cover-heading{font-family:"Cormorant Garamond",Georgia,serif;display:flex;align-items:baseline;gap:clamp(10px,2.4vw,32px);justify-content:center;white-space:nowrap;font-size:clamp(30px,6.9vw,78px);font-weight:400;line-height:1;letter-spacing:.19em}
 .cover-heading em{font-family:"Italianno","Brush Script MT",cursive;letter-spacing:0;font-size:1.2em;font-weight:400;text-transform:none}
@@ -21,3 +21,14 @@ html{scroll-behavior:smooth}
 .rsvp-layout .micro{letter-spacing:.2em}
 @media(max-width:650px){.app{padding:0 0 20px}.save-date-cover{min-height:min(850px,142vw);padding:35px 12px 43px;gap:10px}.cover-heading{font-size:clamp(25px,7.1vw,48px);letter-spacing:.12em;gap:10px}.cover-monogram{width:min(54%,235px);max-height:260px}.cover-names{font-size:clamp(54px,11.5vw,81px)}.cover-date{font-size:clamp(66px,15vw,103px);gap:clamp(10px,3vw,22px)}.cover-location{font-size:clamp(17px,3.8vw,25px)}.cover-rsvp-cta{font-size:10px}.after-cover{padding:18px 18px 10px}.rsvp-layout{padding:0 12px}}
 @media(max-width:380px){.cover-heading{font-size:25px}.cover-names{font-size:49px}.cover-location{font-size:16px}}
+
+/* Responsive miniature of the same cover inside the owner design studio */
+.editor-cover{min-height:690px;padding:36px 18px;gap:8px;box-shadow:none}
+.editor-cover .cover-heading{font-size:clamp(26px,3.2vw,45px);gap:7px;letter-spacing:.15em}
+.editor-cover .cover-monogram{width:46%;max-height:180px}
+.editor-cover .cover-names{font-size:clamp(48px,5vw,67px)}
+.editor-cover .cover-date{font-size:clamp(56px,6vw,91px);gap:15px}
+.editor-cover .cover-location{font-size:clamp(16px,2vw,22px)}
+.editor-cover .cover-rsvp-cta{font-size:9px}
+@media(max-width:800px){.editor-cover{min-height:650px}.editor-cover .cover-heading{font-size:clamp(28px,6vw,49px)}.editor-cover .cover-names{font-size:clamp(55px,10vw,82px)}.editor-cover .cover-date{font-size:clamp(68px,12vw,110px)}.editor-cover .cover-location{font-size:clamp(17px,3.5vw,26px)}}
+@media(max-width:390px){.editor-cover .cover-heading{font-size:26px}.editor-cover .cover-names{font-size:52px}.editor-cover .cover-date{font-size:70px;gap:11px}}
