@@ -1,14 +1,14 @@
 /**
  * Sakshi & Pinak Wedding RSVP — Google Sheets storage adapter.
- * Paste in Extensions > Apps Script attached to "Pinak Wedding Guest List".
+ * Paste in Extensions > Apps Script attached to "Sakshi & Pinak — Wedding Invitations & RSVP".
  * Script Properties:
  *   RSVP_WEBHOOK_SECRET: random 32+ character secret shared only with Vercel
  *   RSVP_PUBLIC_URL: https://your-wedding-site.vercel.app
  * Deploy > Web app: Execute as "Me", access "Anyone".
  * Do NOT expose the secret, webapp URL plus secret, QR codes, or invitation tokens publicly.
- * Original Wedding/All sheets are not modified. Only "Wedding RSVP Register" is used.
+ * This separate file stores all RSVP data in "Invitations & RSVP".\n * The original planning workbook links to its hidden RSVP Sync Feed.
  */
-const TAB='Wedding RSVP Register';
+const TAB='Invitations & RSVP';
 const H={ID:0,NAME:1,PHONE:2,MAX:3,RSVP:4,COUNT:5,TOKEN:6,LINK:7,SEND:8,MESSAGE_ID:9,SENT_AT:10,UPDATED_AT:11,CHECKED:12,CONSENT:13,NOTES:14,PASSES:15};
 const now=()=>new Date().toISOString();
 function json(o){return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);}
