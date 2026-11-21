@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+node_modules/
+.vercel/
+dist/
+backups/
+*.dump
+*.sql.gz
+*.bak
+*.log
+.DS_Store

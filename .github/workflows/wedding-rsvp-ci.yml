@@ -1,0 +1,39 @@
+name: Wedding RSVP security and syntax checks
+on:
+  pull_request:
+    paths:
+      - 'wedding-rsvp/**'
+      - '.github/workflows/wedding-rsvp-ci.yml'
+  push:
+    branches:
+      - 'feature/sakshi-pinak-wedding-rsvp'
+    paths:
+      - 'wedding-rsvp/**'
+      - '.github/workflows/wedding-rsvp-ci.yml'
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: wedding-rsvp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install production dependencies
+        run: npm install --ignore-scripts --no-audit
+      - name: Verify server-side syntax
+        run: node --check api/index.js
+      - name: Verify browser module syntax
+        run: node --check public/common.js
+      - name: Verify valid JSON configuration
+        run: node -e "JSON.parse(require('fs').readFileSync('vercel.json')); JSON.parse(require('fs').readFileSync('public/design.json'))"
+      - name: Check accidental committed credentials
+        run: |
+          if grep -REn '(SUPABASE_SERVICE_ROLE_KEY|GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY|ADMIN_SECRET)=[^[:space:]#]+' . --exclude='.env.example' --exclude='README.md' --exclude='*.yml'; then
+            echo 'Potential committed secret!'; exit 1
+          fi
+          echo 'No obvious secrets found'

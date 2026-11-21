@@ -1,0 +1,84 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Private Invitation — Sakshi & Pinak</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=DM+Sans:wght@400;500;600&family=Italianno&display=swap" rel="stylesheet"><link rel="stylesheet" href="/style.css"></head><body><main class="app"><section class="save-date-cover" id="referenceCover" aria-label="Sakshi and Pinak Save the Date">
+  <div class="cover-heading"><span>SAVE</span><em>the</em><span>DATE</span></div>
+  <img class="cover-monogram" src="/monogram.svg" alt="Sakshi and Pinak floral monogram">
+  <div class="cover-names" id="coverNames">Sakshi &amp; Pinak</div>
+  <div class="cover-date" aria-label="27 January 2027"><span id="coverDay">27</span><span class="cover-heart">♥</span><span id="coverMonth">01</span><span class="cover-heart">♥</span><span id="coverYear">27</span></div>
+  <div class="cover-location" id="coverLocation">27th January 2027&nbsp; | &nbsp;Chh. Sambhajinagar</div>
+  <a class="cover-rsvp-cta" href="#rsvp">Kindly RSVP <span aria-hidden="true">↓</span></a>
+</section>
+<nav class="topnav after-cover"><span class="brand">S &amp; P</span><div class="row" style="flex:0 1 auto"><a href="/editor.html">Design editor</a><span class="pill">INVITATION ONLY</span></div></nav>
+<div class="rsvp-layout" id="rsvp"><section class="panel"><p class="micro muted">YOUR RSVP</p><h2 id="welcome">An invitation has your name on it.</h2><p id="help" class="muted">Your access link will reveal your invitation and reserved guest allocation.</p><div id="demoBanner" class="card hide" style="background:#fff6e9;border-color:#e3bb92"><b>Interactive RSVP preview</b><p style="font-size:13px;margin:6px 0">Try the form below. Nothing entered in demo mode will be saved. Actual invitations are personalized using your guest list.</p><a href="/editor.html" style="font-size:13px;font-weight:600">Open design editor</a></div><form id="form" class="hide"><label for="status">Will you join us?</label><select id="status"><option value="yes">Yes, we'll be there!</option><option value="no">Sorry, we can't attend</option></select><div id="attending"><label for="guestCount">How many people will attend?</label><select id="guestCount"></select><p id="limit" class="hint"></p></div><button style="width:100%" type="submit" id="submit">Submit RSVP</button></form><div id="message" class="hide" role="status"></div><div id="passes" class="hide"><h3>Your private access passes</h3><p class="hint">Each confirmed guest gets an individual scannable QR ticket. Save it to your phone as a PNG; native Wallet integration is not yet enabled.</p><div id="passlist"></div></div></section></div><footer>SAKSHI & PINAK · 27 JANUARY 2027 · PRIVATE CELEBRATION</footer></main><script type="module">
+import{$,call,design,paint,esc}from'/common.js';
+const coverDesign=await design();
+document.documentElement.style.setProperty('--burgundy',coverDesign.color||'#781C2A');
+document.documentElement.style.setProperty('--paper',coverDesign.paper||'#F8ECD7');
+document.getElementById('coverNames').textContent=coverDesign.couple||'Sakshi & Pinak';
+const dateText=coverDesign.date||'27 January 2027';
+const m=/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/.exec(dateText.trim());
+const months=['january','february','march','april','may','june','july','august','september','october','november','december'];
+if(m&&months.includes(m[2].toLowerCase())){document.getElementById('coverDay').textContent=m[1].padStart(2,'0');document.getElementById('coverMonth').textContent=String(months.indexOf(m[2].toLowerCase())+1).padStart(2,'0');document.getElementById('coverYear').textContent=m[3].slice(-2)}
+document.getElementById('coverLocation').textContent=dateText+'  |  '+(coverDesign.location||'Chh. Sambhajinagar');
+const token=new URLSearchParams(location.search).get('invite')||'';
+const demo=!token;
+let limit=4;
+const msg=(s,bad=false)=>{$('message').classList.remove('hide');$('message').className=bad?'err':'ok';$('message').textContent=s};
+function countOptions(){
+ const prev=Number($('guestCount').value)||1;
+ $('guestCount').innerHTML=Array.from({length:Math.min(30,Math.max(1,limit))},(_,i)=>'<option value="'+(i+1)+'">'+(i+1)+(i===0?' person':' people')+'</option>').join('');
+ $('guestCount').value=Math.min(prev,limit);
+ $('limit').textContent='Your invitation can include up to '+limit+' guest(s).';
+}
+function changeStatus(){$('attending').classList.toggle('hide',$('status').value!=='yes')}
+$('status').onchange=changeStatus;
+async function showPasses(){
+ const d=await call('passes',{params:{invite:token}});
+ $('passes').classList.remove('hide');
+ $('passlist').innerHTML=d.passes.map(p=>'<div class="card"><b>'+esc(p.guest_name)+'</b> · Pass '+p.slot+'<div style="margin-top:12px"><a class="button" href="/ticket.html?invite='+encodeURIComponent(token)+'&slot='+p.slot+'">View and save QR pass</a></div></div>').join('');
+}
+async function load(){
+ if(demo){
+  $('welcome').textContent='Hello, Sample Family!';
+  $('help').textContent='Preview an RSVP for a family of up to four.';
+  $('demoBanner').classList.remove('hide');
+  $('form').classList.remove('hide');
+  $('submit').textContent='Test RSVP (demo only)';
+  countOptions();changeStatus();return;
+ }
+ try{
+  const d=await call('invite',{params:{invite:token}});
+  limit=d.limit;
+  $('welcome').textContent='Dear '+d.household+',';
+  $('help').textContent='We would love to celebrate with you. Please confirm your attendance.';
+  $('form').classList.remove('hide');
+  countOptions();
+  if(d.rsvp){
+   $('status').value=d.rsvp.status;
+   if(d.rsvp.status==='yes')$('guestCount').value=String(d.rsvp.count);
+   if(d.rsvp.status==='yes')await showPasses();
+  }
+  changeStatus();
+ }catch(e){msg(e.message,true)}
+}
+$('form').onsubmit=async e=>{
+ e.preventDefault();
+ const yes=$('status').value==='yes';
+ const count=yes?Number($('guestCount').value):0;
+ if(demo){
+  msg(yes?'Demo RSVP confirmed for '+count+' people. Nothing was saved.':'Demo declined. Nothing was saved.');
+  $('passes').classList.toggle('hide',!yes);
+  if(yes){
+   $('passes').querySelector('h3').textContent='Preview your QR access pass';
+   $('passlist').innerHTML='<div class="card"><b>Sample Family</b><p class="hint">Demo only — this QR cannot be used at the entrance.</p><a class="button" href="/ticket.html?demo=1&name='+encodeURIComponent('Sample Family')+'">Open demo QR pass</a></div>';
+  }
+  return;
+ }
+ const btn=$('submit');btn.disabled=true;
+ try{
+  await call('rsvp',{method:'POST',body:{invite:token,status:yes?'yes':'no',count}});
+  msg(yes?'RSVP confirmed! Your QR pass is ready below.':'Thank you. Your RSVP has been recorded.');
+  $('passes').classList.add('hide');
+  if(yes)await showPasses();
+ }catch(err){msg(err.message,true)}finally{btn.disabled=false}
+};
+load();
+</script></body></html>
