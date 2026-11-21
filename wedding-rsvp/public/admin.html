@@ -1,7 +1,7 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Wedding RSVP Admin — Sakshi & Pinak</title><link rel="stylesheet" href="/style.css"></head>
 <body><main class="app"><nav class="topnav"><span class="brand">S & P · CONTROL ROOM</span><a href="/">Guest website</a></nav>
 <section class="panel"><p class="micro muted">PRIVATE WEDDING OPERATIONS</p><h1>WhatsApp invitations & RSVPs</h1>
-<p class="hint">Google Sheets is the single source for names, phone numbers, attendance and QR codes. The original wedding planning tabs are unchanged.</p>
+<p class="hint">Google Sheets is the single source for names, phone numbers, attendance and QR codes. The original planning workbook receives RSVP status and confirmed guest counts through its linked RSVP sheet.</p>
 <label for="secret">Administrator secret</label><input type="password" id="secret" autocomplete="off" placeholder="ADMIN_SECRET from Vercel">
 <div class="row"><button id="refresh">Refresh dashboard</button><a class="button secondary" href="/editor.html">Design editor</a></div>
 <div class="row" style="margin-top:12px"><div class="card"><span class="micro">Wedding target</span><h2 id="target">700</h2></div><div class="card"><span class="micro">Invited seats</span><h2 id="invited">—</h2></div><div class="card"><span class="micro">Confirmed</span><h2 id="confirmed">—</h2></div></div>
@@ -10,7 +10,7 @@
 <p class="hint">Queueing does not itself send messages. The authorized Apps Script worker sends queued messages once configured and enabled. You can also send one opted-in test contact using the button below.</p>
 <p id="result" role="status"></p>
 <div class="tablewrap"><table><thead><tr><th>Guest</th><th>Phone</th><th>Max</th><th>RSVP</th><th>Confirmed</th><th>Consent</th><th>WhatsApp</th><th>Actions</th></tr></thead><tbody id="rows"><tr><td colspan="8">Enter your admin secret and refresh.</td></tr></tbody></table></div>
-<p style="margin-top:22px"><a href="https://docs.google.com/spreadsheets/d/1ArjWx2O7oWBgavf0UL86EmEE2kxDp9V6CEDxxDoiYCY/edit" target="_blank" rel="noopener noreferrer">Open Wedding RSVP Register in Google Sheets</a></p>
+<p style="margin-top:22px"><a href="https://docs.google.com/spreadsheets/d/16GXb7qaM1fccfM4OYOeyiRZAoAx4XfVC_jPDPYPRlVc/edit" target="_blank" rel="noopener noreferrer">Open Wedding Invitations & RSVP Google Sheet</a></p>
 </section><footer>PRIVATE · SEND ONLY TO INVITEES WHO HAVE AGREED TO RECEIVE WHATSAPP MESSAGES</footer></main>
 <script type="module">
 import{$,call,esc}from'/common.js';
