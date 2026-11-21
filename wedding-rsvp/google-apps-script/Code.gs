@@ -67,17 +67,37 @@ function callHandler(a){
  }
  if(a.action==='prepare'){
   const lock=LockService.getScriptLock();lock.waitLock(20000);
-  try{let prepared=0,skipped=0;const url=prop('RSVP_PUBLIC_URL').replace(/\/$/,'');if(!/^https:\/\//.test(url))throw Error('SET_RSVP_PUBLIC_URL');
-  for(const item of sheetRows(s)){
-   const v=item.v;if(!String(v[H.NAME]||'').trim()||!Number.isInteger(Number(v[H.MAX]))||Number(v[H.MAX])<1||Number(v[H.MAX])>30){skipped++;continue;}
-   const id=String(v[H.ID]||Utilities.getUuid()),token=String(v[H.TOKEN]||secureToken());
-   const link=url+'/?invite='+encodeURIComponent(token);
-   s.getRange(item.row,1).setValue(id);
-   s.getRange(item.row,7,1,3).setValues([[token,link,String(v[H.SEND]||'Not Sent')]]);
-   if(!v[H.RSVP])s.getRange(item.row,5).setValue('Pending');
-   prepared++;
-  }SpreadsheetApp.flush();return {prepared,skipped};
+  try{
+   const url=prop('RSVP_PUBLIC_URL').replace(/\/$/,'');
+   if(!/^https:\/\//.test(url))throw Error('SET_RSVP_PUBLIC_URL');
+   const rows=sheetRows(s);if(!rows.length)return {prepared:0,skipped:0};
+   const ids=[],statuses=[],links=[];let prepared=0,skipped=0;
+   for(const {v} of rows){
+    const name=String(v[H.NAME]||'').trim(),max=Number(v[H.MAX]);
+    const valid=name&&Number.isInteger(max)&&max>=1&&max<=30;
+    const id=valid?String(v[H.ID]||Utilities.getUuid()):v[H.ID];
+    const token=valid?String(v[H.TOKEN]||secureToken()):v[H.TOKEN];
+    ids.push([id]);statuses.push([valid?String(v[H.RSVP]||'Pending'):v[H.RSVP]]);
+    links.push([token,valid?url+'/?invite='+encodeURIComponent(token):v[H.LINK],valid?String(v[H.SEND]||'Not Sent'):v[H.SEND]]);
+    if(valid)prepared++;else skipped++;
+   }
+   s.getRange(2,1,ids.length,1).setValues(ids);
+   s.getRange(2,5,statuses.length,1).setValues(statuses);
+   s.getRange(2,7,links.length,3).setValues(links);
+   SpreadsheetApp.flush();return {prepared,skipped};
   }finally{lock.releaseLock()}
+ }
+ if(a.action==='queue'){
+  const rows=sheetRows(s);if(!rows.length)return {queued:0,skipped:0};
+  let queued=0,skipped=0;
+  const statuses=rows.map(({v})=>{
+   const status=String(v[H.SEND]||'Not Sent');
+   if(['Sent','Queued'].includes(status))return [status];
+   if(String(v[H.CONSENT])!=='Yes'||!validNumber(v[H.PHONE])||!String(v[H.LINK]).startsWith('https://')){skipped++;return [status]}
+   queued++;return ['Queued'];
+  });
+  s.getRange(2,9,statuses.length,1).setValues(statuses);
+  return {queued,skipped};
  }
  if(a.action==='mark_send'){
   const row=Number(a.row),allowed=['Queued','Sent','Failed','Not Sent'];
@@ -112,3 +132,42 @@ function doPost(e){
  }catch(err){return json({ok:false,error:String(err.message||err).slice(0,140)})}
 }
 function doGet(){return json({ok:false,error:'POST_ONLY'})}
+
+/** Install this time-driven worker only AFTER the approved WhatsApp template,
+ * verified sender, opt-in consent, and test messages have all been confirmed.
+ * The worker processes up to 10 queued rows every five minutes. */
+function installWhatsAppQueueTrigger(){
+ const found=ScriptApp.getProjectTriggers().some(t=>t.getHandlerFunction()==='whatsappQueueWorker');
+ if(!found)ScriptApp.newTrigger('whatsappQueueWorker').timeBased().everyMinutes(5).create();
+}
+function stopWhatsAppQueueTrigger(){
+ ScriptApp.getProjectTriggers().filter(t=>t.getHandlerFunction()==='whatsappQueueWorker').forEach(ScriptApp.deleteTrigger);
+}
+function whatsappQueueWorker(){
+ const token=prop('META_WHATSAPP_ACCESS_TOKEN'),id=prop('META_WHATSAPP_PHONE_NUMBER_ID'),template=prop('META_WHATSAPP_TEMPLATE_NAME'),language=prop('META_WHATSAPP_TEMPLATE_LANGUAGE')||'en';
+ if(!token||!id||!template)throw Error('META_WHATSAPP_CREDENTIALS_NOT_SET');
+ const lock=LockService.getScriptLock();if(!lock.tryLock(1000))return;
+ try{
+  const s=data();let processed=0;
+  for(const {row,v} of sheetRows(s)){
+   if(processed>=10)break;
+   if(String(v[H.SEND])!=='Queued')continue;
+   if(String(v[H.CONSENT])!=='Yes'||!validNumber(v[H.PHONE])||!/^https:\/\//.test(String(v[H.LINK]))){s.getRange(row,9).setValue('Failed');continue;}
+   const body={messaging_product:'whatsapp',to:String(v[H.PHONE]).replace(/^\+/,''),type:'template',
+     template:{name:template,language:{code:language},components:[{type:'body',parameters:[
+       {type:'text',text:String(v[H.NAME]).slice(0,100)},{type:'text',text:String(v[H.LINK])}]}]}};
+   try{
+    const response=UrlFetchApp.fetch('https://graph.facebook.com/v23.0/'+encodeURIComponent(id)+'/messages',{
+      method:'post',contentType:'application/json',headers:{Authorization:'Bearer '+token},payload:JSON.stringify(body),muteHttpExceptions:true});
+    const result=JSON.parse(response.getContentText()||'{}');
+    if(response.getResponseCode()<200||response.getResponseCode()>=300||!result.messages?.[0]?.id)throw Error('WHATSAPP_REJECTED');
+    s.getRange(row,9,1,3).setValues([['Sent',String(result.messages[0].id),now()]]);
+   }catch(err){
+    s.getRange(row,9).setValue('Failed');
+    console.error('WhatsApp queued send failed for row '+row+': '+String(err.message).slice(0,150));
+   }
+   processed++;
+   Utilities.sleep(250);
+  }
+ }finally{lock.releaseLock()}
+}
