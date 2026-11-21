@@ -64,6 +64,10 @@ export default async function handler(req,res){
    if(!admin(req))return respond(res,401,{error:'Admin authorization required'});
    return respond(res,200,await sheet('prepare'));
   }
+  if(action==='queue'&&req.method==='POST'){
+   if(!admin(req))return respond(res,401,{error:'Admin authorization required'});
+   return respond(res,200,await sheet('queue'));
+  }
   if(action==='send-one'&&req.method==='POST'){
    if(!admin(req))return respond(res,401,{error:'Admin authorization required'});
    const row=Number(req.body?.row);if(!Number.isInteger(row)||row<2)return respond(res,400,{error:'Invalid row'});
