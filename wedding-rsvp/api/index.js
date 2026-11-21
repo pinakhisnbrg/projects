@@ -75,7 +75,7 @@ export default async function handler(req,res){
    if(!g)return respond(res,404,{error:'Guest not found'});
    if(g.consent!=='Yes')return respond(res,403,{error:'Guest opt-in must be Yes'});
    if(!/^\+[1-9]\d{7,14}$/.test(g.phone))return respond(res,400,{error:'WhatsApp number must use +countrycode'});
-   if(g.send==='Sent')return respond(res,409,{error:'Already sent'});
+   if(g.send==='Sent'||g.send==='Queued')return respond(res,409,{error:'Already sent or queued for the WhatsApp worker'});
    if(!/^https:\/\/[a-z0-9.-]+\/\?invite=[a-f0-9]{48,64}$/i.test(g.url))return respond(res,400,{error:'Generate links before sending'});
    // An explicit administrator request triggers one outgoing WhatsApp template message.
    let messageId;try{messageId=await cloudSend({phone:g.phone,name:g.name,url:g.url})}catch(e){await sheet('mark_send',{row,send:'Failed'});throw e}
