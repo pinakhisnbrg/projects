@@ -1,136 +1,87 @@
 import crypto from 'node:crypto';
 import QRCode from 'qrcode';
-
-const clean=(x,n=120)=>String(x??'').trim().slice(0,n);
-const validToken=x=>typeof x==='string' && /^[a-f0-9]{48,64}$/i.test(x);
-const send=(res,status,data)=>{res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type','application/json; charset=utf-8');res.status(status).end(JSON.stringify(data));};
-const admin=req=>{const secret=process.env.ADMIN_SECRET||'',provided=(req.headers.authorization||'').replace(/^Bearer /,'');if(secret.length<32||!provided)return false;const a=Buffer.from(secret),b=Buffer.from(provided);return a.length===b.length&&crypto.timingSafeEqual(a,b);};
-function noAdmin(req,res){if(!admin(req)){send(res,401,{error:'Administrator authorization required'});return true}return false;}
-const appURL=()=>String(process.env.APP_BASE_URL||'').replace(/\/$/,'');
-async function database(path,method='GET',data=null){
- const url=process.env.SUPABASE_URL,key=process.env.SUPABASE_SERVICE_ROLE_KEY;
- if(!url||!key)throw new Error('Database not configured');
- const r=await fetch(url.replace(/\/$/,'')+'/rest/v1/'+path,{method,headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json',Prefer:'return=representation,resolution=merge-duplicates'},body:data===null?undefined:JSON.stringify(data),cache:'no-store'});
- const raw=await r.text();let j;try{j=JSON.parse(raw)}catch{j=raw}
- if(!r.ok)throw new Error(j?.message||'Database error '+r.status);return j;
-}
-async function invite(token){
- const rows=await database('invitations?select=id,household_name,allowed_guests&invite_token=eq.'+encodeURIComponent(token));
- return rows[0]||null;
-}
-async function state(inv){
- const [rs,ps]=await Promise.all([database('rsvps?select=status,adults,children,guest_names&invitation_id=eq.'+inv.id),database('guest_passes?select=slot,guest_name&active=eq.true&invitation_id=eq.'+inv.id+'&order=slot.asc')]);
- return {household:inv.household_name,limit:inv.allowed_guests,rsvp:rs[0]||null,passes:ps};
-}
+const tokenOK=v=>typeof v==='string'&&/^[a-f0-9]{48,64}$/i.test(v);
+const respond=(res,code,data)=>{res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','no-store');res.status(code).end(JSON.stringify(data))};
+const admin=req=>{const a=process.env.ADMIN_SECRET||'',b=(req.headers.authorization||'').replace(/^Bearer /,'');return a.length>=32&&b.length===a.length&&crypto.timingSafeEqual(Buffer.from(a),Buffer.from(b))};
 const defaults={eyebrow:'PRIVATE INVITATION · 27 JANUARY 2027',headline:'An invitation reserved for you.',couple:'Sakshi & Pinak',subtitle:'A celebration worth keeping secret. Until now.',date:'27 January 2027',location:'Chhatrapati Sambhajinagar',footer:'BY INVITATION ONLY · ADMIT WITH LOVE',confirmText:'Confirm my presence',declineText:'Regretfully decline',color:'#781C2A',paper:'#F8ECD7',accent:'#DDBCA9',layout:'minimal'};
-function sanitizeDesign(d){
- const out={};for(const k of Object.keys(defaults)){const v=d?.[k];if(typeof defaults[k]==='boolean'){out[k]=typeof v==='boolean'?v:defaults[k];continue;}
- if(k==='layout'){out[k]=['minimal','editorial','centered'].includes(v)?v:defaults[k];continue;}
- if(['color','paper','accent'].includes(k)){out[k]=typeof v==='string'&&/^#[0-9a-fA-F]{6}$/.test(v)?v:defaults[k];continue;}
- out[k]=clean(v??defaults[k],k==='subtitle'?180:100);}return out;
+function sanitizeDesign(d){const out={};for(const [k,v] of Object.entries(defaults)){let val=d?.[k];if(['paper','color','accent'].includes(k))out[k]=typeof val==='string'&&/^#[0-9a-f]{6}$/i.test(val)?val:v;else if(k==='layout')out[k]=['minimal','centered','editorial'].includes(val)?val:v;else out[k]=String(val??v).slice(0,150)}return out}
+async function sheet(action,data={}){
+ const url=process.env.GOOGLE_APPS_SCRIPT_WEBAPP_URL,secret=process.env.RSVP_WEBHOOK_SECRET;
+ if(!/^https:\/\/script\.google\.com\/macros\/s\//.test(url||'')||!secret||secret.length<32)throw Error('Sheets integration not configured');
+ const req=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,...data,secret}),redirect:'follow',cache:'no-store',signal:AbortSignal.timeout(25000)});
+ if(!req.ok)throw Error('Google Apps Script returned '+req.status);
+ const body=await req.json();
+ if(!body.ok)throw Error(body.error||'Sheets operation failed');
+ return body.result;
 }
-const toJSON=x=>x&&typeof x==='object'?x:{};
-async function googleSync(){
- const sid=process.env.GOOGLE_SPREADSHEET_ID,mail=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g,'\n');
- if(!sid||!mail||!key)return {status:'not_configured'};
- const [invs,rs,ps]=await Promise.all([database('invitations?select=id,household_name,phone,allowed_guests,invite_token'),database('rsvps?select=*'),database('guest_passes?select=invitation_id,active,checked_in_at')]);
- const map=new Map(rs.map(r=>[r.invitation_id,r]));
- const rows=[['Household','Phone','Invited','Status','Adults','Children','Confirmed','Guest Names','Checked In','Updated At','Invitation URL']];
- for(const i of invs){const r=map.get(i.id),checked=ps.filter(p=>p.invitation_id===i.id&&p.active&&p.checked_in_at).length;rows.push([i.household_name,i.phone||'',i.allowed_guests,r?.status||'pending',r?.adults||0,r?.children||0,r?.status==='yes'?r.adults+r.children:0,(r?.guest_names||[]).join(' | '),checked,r?.updated_at||'',appURL()+'/?invite='+i.invite_token]);}
- const now=Math.floor(Date.now()/1000),b64=o=>Buffer.from(JSON.stringify(o)).toString('base64url');
- const unsigned=b64({alg:'RS256',typ:'JWT'})+'.'+b64({iss:mail,scope:'https://www.googleapis.com/auth/spreadsheets',aud:'https://oauth2.googleapis.com/token',iat:now,exp:now+3600});
- const signed=unsigned+'.'+crypto.sign('RSA-SHA256',Buffer.from(unsigned),key).toString('base64url');
- const t=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',assertion:signed})});
- const auth=await t.json();if(!t.ok)throw Error('Google OAuth authorization failed');
- const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+encodeURIComponent(sid)+'/values/Guests!A1:K3000?valueInputOption=RAW',{method:'PUT',headers:{Authorization:'Bearer '+auth.access_token,'Content-Type':'application/json'},body:JSON.stringify({range:'Guests!A1',majorDimension:'ROWS',values:rows})});
- if(!r.ok)throw Error('Google Sheets synchronization failed');return {status:'synced',households:rows.length-1};
+async function qr(res,text){
+ const png=await QRCode.toBuffer(text,{type:'png',width:550,margin:3,errorCorrectionLevel:'H',color:{dark:'#781C2A',light:'#FFFFFF'}});
+ res.setHeader('Content-Type','image/png');res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');res.status(200).end(png);
+}
+async function cloudSend({phone,name,url}){
+ const token=process.env.META_WHATSAPP_ACCESS_TOKEN,id=process.env.META_WHATSAPP_PHONE_NUMBER_ID,template=process.env.META_WHATSAPP_TEMPLATE_NAME,language=process.env.META_WHATSAPP_TEMPLATE_LANGUAGE||'en';
+ if(!token||!id||!template)throw Error('WhatsApp Cloud API credentials and approved template not configured');
+ // Template must have exactly 2 BODY placeholders: {{1}} recipient name, {{2}} invitation URL.
+ const body={messaging_product:'whatsapp',to:phone.replace(/^\+/,''),type:'template',template:{name:template,language:{code:language},components:[{type:'body',parameters:[{type:'text',text:name.slice(0,100)},{type:'text',text:url}]}]}};
+ const response=await fetch('https://graph.facebook.com/v23.0/'+encodeURIComponent(id)+'/messages',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify(body),signal:AbortSignal.timeout(15000)});
+ const j=await response.json();if(!response.ok||!j.messages?.[0]?.id)throw Error('WhatsApp provider rejected template message');
+ return j.messages[0].id;
 }
 export default async function handler(req,res){
  const action=String(req.query.action||'');
  try{
- if(action==='design'&&req.method==='GET'){
-   let d=defaults;if(process.env.SUPABASE_URL&&process.env.SUPABASE_SERVICE_ROLE_KEY){const rows=await database('site_settings?key=eq.homepage&select=value');if(rows.length)d=sanitizeDesign(rows[0].value);}
-   return send(res,200,{design:d});
- }
- if(action==='design'&&req.method==='POST'){
-   if(noAdmin(req,res))return;
-   const design=sanitizeDesign(req.body?.design);
-   await database('site_settings?on_conflict=key','POST',[{key:'homepage',value:design,updated_at:new Date().toISOString()}]);
-   return send(res,200,{design});
- }
- if(action==='invite'&&req.method==='GET'){
-   if(!validToken(req.query.invite))return send(res,400,{error:'Invalid invitation link'});
-   const inv=await invite(req.query.invite);return inv?send(res,200,await state(inv)):send(res,404,{error:'Invitation not found'});
- }
- if(action==='rsvp'&&req.method==='POST'){
-   const b=toJSON(req.body),token=b.invite;
-   if(!validToken(token))return send(res,400,{error:'Invalid invitation link'});
-   const inv=await invite(token);if(!inv)return send(res,404,{error:'Invitation not found'});
-   const status=b.status;if(!['yes','maybe','no'].includes(status))return send(res,400,{error:'Select your attendance'});
-   const adults=status==='yes'?Number(b.adults):0,children=status==='yes'?Number(b.children):0;
-   const names=Array.isArray(b.names)?b.names.map(n=>clean(n,100)):[];
-   if(!Number.isInteger(adults)||!Number.isInteger(children)||adults<0||children<0||adults+children>inv.allowed_guests||(status==='yes'&&(adults<1||names.length!==adults+children||names.some(n=>!n))))return send(res,400,{error:'Check your party size and guest names; maximum '+inv.allowed_guests+' attendees'});
-   await database('rpc/submit_wedding_rsvp','POST',{p_token:token,p_status:status,p_adults:adults,p_children:children,p_names:status==='yes'?names:[],p_song:clean(b.song,160)});
-   let sheets={status:'pending'};try{sheets=await googleSync()}catch(e){console.error('Google Sheets sync pending',e.message);}
-   return send(res,200,{...await state(inv),sheets});
- }
- if(action==='passes'&&req.method==='GET'){
-   const token=req.query.invite;if(!validToken(token))return send(res,400,{error:'Invalid invitation'});
-   const inv=await invite(token);if(!inv)return send(res,404,{error:'Invitation not found'});
-   const r=await database('rsvps?select=status&invitation_id=eq.'+inv.id);
-   if(r[0]?.status!=='yes')return send(res,403,{error:'RSVP confirmation required'});
-   const ps=await database('guest_passes?select=slot,guest_name&invitation_id=eq.'+inv.id+'&active=eq.true&order=slot.asc');
-   return send(res,200,{passes:ps});
- }
- if(action==='demo-qr'&&req.method==='GET'){
-   // This is deliberately NOT a check-in credential. It can be used to preview a pass safely.
-   const png=await QRCode.toBuffer('DEMO-ONLY-NOT-VALID-FOR-ENTRY',{type:'png',margin:3,width:550,errorCorrectionLevel:'H',color:{dark:'#781C2A',light:'#FFFFFF'}});
-   res.setHeader('Content-Type','image/png');res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');return res.status(200).end(png);
- }
- if(action==='qr'&&req.method==='GET'){
-   const token=req.query.invite,slot=Number(req.query.slot);
-   if(!validToken(token)||!Number.isInteger(slot)||slot<1||slot>30)return send(res,400,{error:'Invalid ticket'});
-   const inv=await invite(token);if(!inv)return send(res,404,{error:'Invitation not found'});
-   const r=await database('rsvps?select=status&invitation_id=eq.'+inv.id);
-   if(r[0]?.status!=='yes')return send(res,403,{error:'RSVP required'});
-   const ps=await database('guest_passes?select=checkin_code&invitation_id=eq.'+inv.id+'&slot=eq.'+slot+'&active=eq.true');
-   if(!ps.length)return send(res,404,{error:'Ticket not found'});
-   const code='PS-WEDDING:'+ps[0].checkin_code;
-   const options={margin:3,width:550,errorCorrectionLevel:'H',color:{dark:'#781C2A',light:'#FFFFFF'}};
-   if(req.query.format==='svg'){
-     const svg=await QRCode.toString(code,{...options,type:'svg'});
-     res.setHeader('Content-Type','image/svg+xml');res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');return res.status(200).end(svg);
-   }
-   const png=await QRCode.toBuffer(code,{...options,type:'png'});
-   res.setHeader('Content-Type','image/png');res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');return res.status(200).end(png);
- }
- if(action==='admin'&&req.method==='GET'){
-   if(noAdmin(req,res))return;
-   const [invs,rs,ps]=await Promise.all([database('invitations?select=id,household_name,phone,invite_token,allowed_guests&order=household_name.asc'),database('rsvps?select=*'),database('guest_passes?select=invitation_id,active,checked_in_at')]);
-   const map=new Map(rs.map(r=>[r.invitation_id,r]));const rows=invs.map(i=>{const r=map.get(i.id);return {household:i.household_name,phone:i.phone||'',invited:i.allowed_guests,status:r?.status||'pending',confirmed:r?.status==='yes'?r.adults+r.children:0,checkedIn:ps.filter(p=>p.invitation_id===i.id&&p.active&&p.checked_in_at).length,url:appURL()+'/?invite='+i.invite_token};});
-   return send(res,200,{rows,totals:{target:700,invited:rows.reduce((n,r)=>n+r.invited,0),confirmed:rows.reduce((n,r)=>n+r.confirmed,0),checkedIn:rows.reduce((n,r)=>n+r.checkedIn,0)}});
- }
- if(action==='create-invite'&&req.method==='POST'){
-   if(noAdmin(req,res))return;
-   const b=toJSON(req.body),name=clean(b.household,100),seats=Number(b.seats),phone=clean(b.phone,30);
-   if(!name||!Number.isInteger(seats)||seats<1||seats>30)return send(res,400,{error:'Specify household name and 1–30 seats'});
-   const token=crypto.randomBytes(24).toString('hex');
-   await database('invitations','POST',{invite_token:token,household_name:name,phone,allowed_guests:seats});
-   return send(res,200,{url:appURL()+'/?invite='+token,household:name,seats});
- }
- if(action==='checkin'&&req.method==='POST'){
-   if(noAdmin(req,res))return;
-   const code=clean(req.body?.code,100).replace(/^PS-WEDDING:/,'');
-   if(!validToken(code))return send(res,400,{error:'Invalid QR code'});
-   const p=await database('guest_passes?select=id,guest_name,active,checked_in_at&checkin_code=eq.'+code);
-   if(!p.length||!p[0].active)return send(res,404,{error:'Ticket not valid'});
-   if(p[0].checked_in_at)return send(res,409,{error:'Already checked in',guest:p[0].guest_name});
-   const done=await database('guest_passes?id=eq.'+p[0].id+'&checked_in_at=is.null','PATCH',{checked_in_at:new Date().toISOString()});
-   return done.length?send(res,200,{ok:true,guest:p[0].guest_name}):send(res,409,{error:'Already checked in'});
- }
- if(action==='sync'&&req.method==='POST'){
-   if(noAdmin(req,res))return;return send(res,200,await googleSync());
- }
- return send(res,404,{error:'Unknown API endpoint'});
- }catch(e){console.error(action,e);return send(res,500,{error:'Unable to complete request. Check server configuration or try again.'});}
+  if(action==='design'&&req.method==='GET'){let config=defaults;if(process.env.GOOGLE_APPS_SCRIPT_WEBAPP_URL&&process.env.RSVP_WEBHOOK_SECRET){const d=await sheet('design_read');config=sanitizeDesign(d||defaults)}return respond(res,200,{design:config})}
+  if(action==='design'&&req.method==='POST'){if(!admin(req))return respond(res,401,{error:'Admin authorization required'});const design=sanitizeDesign(req.body?.design);await sheet('design_write',{design});return respond(res,200,{design})}
+  if(action==='demo-qr'&&req.method==='GET')return await qr(res,'DEMO-ONLY-NOT-VALID-FOR-ENTRY');
+  if(action==='invite'&&req.method==='GET'){
+   if(!tokenOK(req.query.invite))return respond(res,400,{error:'Invalid invitation link'});
+   const d=await sheet('lookup',{token:req.query.invite});
+   return respond(res,200,{household:d.guest.name,limit:d.guest.max,rsvp:d.guest.rsvp==='Pending'?null:{status:d.guest.rsvp==='Yes'?'yes':'no',count:d.guest.count},passes:d.passes});
+  }
+  if(action==='rsvp'&&req.method==='POST'){
+   const token=req.body?.invite,status=req.body?.status,count=Number(req.body?.count);
+   if(!tokenOK(token)||!['yes','no'].includes(status)||!Number.isInteger(count)||count<0||count>30||(status==='yes'&&count<1))return respond(res,400,{error:'Invalid RSVP or guest count'});
+   const d=await sheet('rsvp',{token,rsvp:status==='yes'?'Yes':'No',count:status==='yes'?count:0});
+   return respond(res,200,{household:d.guest.name,limit:d.guest.max,rsvp:{status,count:d.guest.count},passes:d.passes});
+  }
+  if(action==='passes'&&req.method==='GET'){
+   if(!tokenOK(req.query.invite))return respond(res,400,{error:'Invalid invitation'});
+   const d=await sheet('lookup',{token:req.query.invite});
+   if(d.guest.rsvp!=='Yes')return respond(res,403,{error:'Please confirm your attendance first'});
+   return respond(res,200,{passes:d.passes.map(p=>({slot:p.slot,guest_name:d.guest.name,checked_in:p.checked}))});
+  }
+  if(action==='qr'&&req.method==='GET'){
+   if(!tokenOK(req.query.invite)||!Number.isInteger(Number(req.query.slot)))return respond(res,400,{error:'Invalid QR request'});
+   const d=await sheet('qr',{token:req.query.invite,slot:Number(req.query.slot)});
+   return await qr(res,'PS-WEDDING:'+d.code);
+  }
+  if(action==='admin'&&req.method==='GET'){
+   if(!admin(req))return respond(res,401,{error:'Admin authorization required'});
+   const d=await sheet('list');
+   return respond(res,200,{rows:d.guests.map(g=>({row:g.row,household:g.name,phone:g.phone,invited:g.max,confirmed:g.rsvp==='Yes'?g.count:0,checkedIn:0,status:g.rsvp,send:g.send,consent:g.consent,url:g.url})),totals:{target:700,invited:d.guests.reduce((a,g)=>a+g.max,0),confirmed:d.guests.reduce((a,g)=>a+(g.rsvp==='Yes'?g.count:0),0)}});
+  }
+  if(action==='prepare'&&req.method==='POST'){
+   if(!admin(req))return respond(res,401,{error:'Admin authorization required'});
+   return respond(res,200,await sheet('prepare'));
+  }
+  if(action==='send-one'&&req.method==='POST'){
+   if(!admin(req))return respond(res,401,{error:'Admin authorization required'});
+   const row=Number(req.body?.row);if(!Number.isInteger(row)||row<2)return respond(res,400,{error:'Invalid row'});
+   const d=await sheet('list'),g=d.guests.find(x=>x.row===row);
+   if(!g)return respond(res,404,{error:'Guest not found'});
+   if(g.consent!=='Yes')return respond(res,403,{error:'Guest opt-in must be Yes'});
+   if(!/^\+[1-9]\d{7,14}$/.test(g.phone))return respond(res,400,{error:'WhatsApp number must use +countrycode'});
+   if(g.send==='Sent')return respond(res,409,{error:'Already sent'});
+   if(!/^https:\/\/[a-z0-9.-]+\/\?invite=[a-f0-9]{48,64}$/i.test(g.url))return respond(res,400,{error:'Generate links before sending'});
+   // An explicit administrator request triggers one outgoing WhatsApp template message.
+   let messageId;try{messageId=await cloudSend({phone:g.phone,name:g.name,url:g.url})}catch(e){await sheet('mark_send',{row,send:'Failed'});throw e}
+   await sheet('mark_send',{row,send:'Sent',messageId});
+   return respond(res,200,{ok:true,guest:g.name,status:'Sent'});
+  }
+  if(action==='checkin'&&req.method==='POST'){
+   if(!admin(req))return respond(res,401,{error:'Admin authorization required'});
+   return respond(res,200,await sheet('checkin',{code:req.body?.code}));
+  }
+  return respond(res,404,{error:'Unknown API endpoint'});
+ }catch(e){console.error('Wedding API',action,String(e.message||e));const known=/^(INVALID_|RSVP_|PASS_|SET_RSVP_)/.test(String(e.message||''));return respond(res,known?400:503,{error:known?e.message:'Service unavailable or not fully configured. Please try again later.'})}
 }
