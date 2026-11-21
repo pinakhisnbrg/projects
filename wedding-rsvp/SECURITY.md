@@ -1,59 +1,51 @@
-# Security and data recovery — prelaunch requirements
+# Wedding RSVP security checklist — Google Sheets edition
 
-This application is **under development and NOT production approved**. Never send a real guest invitation until this checklist has been completed and verified.
+The wedding RSVP system uses Google Sheets as the **only** source of guest data. **Do not send real WhatsApp invitations until each launch gate passes.**
 
-## Source code and GitHub
+## Guest data
+- The "Pinak Wedding Guest List" workbook is private. Do not share it publicly or publish any tab to the web.
+- Use only the dedicated "Wedding RSVP Register" for RSVP writes; leave the source Wedding and All planning tabs unchanged.
+- Guest names, phones, invitation tokens, pass codes and webapp shared secrets must never be checked into GitHub or embedded in browser JavaScript.
+- Require multifactor authentication on all Google, Meta, GitHub and Vercel accounts; limit spreadsheet editors.
+- Put the bound Apps Script Web App behind a strong shared secret in Script Properties and Vercel encrypted environment variables. Restrict its doPost actions to trusted server requests.
+- RSVP links use 64-character random tokens; they are bearer credentials. Sending a link to someone else grants access to that household's RSVP until a stronger phone-verification flow is implemented.
+- Do not publish invitation tokens or QR codes publicly.
+- Google Apps Script daily quotas and spreadsheet concurrency need load testing; LockService protects RSVP writes but cannot eliminate all operational risks.
 
-- Keep real guest lists and invitation tokens out of this repository, including issues, screenshots, CI logs and sample data.
-- Enable GitHub account 2FA/passkeys; review repository collaborators and installed apps.
-- In GitHub Settings → Rules → Rulesets, protect the default branch. Require pull requests, at least one trusted review, passing wedding RSVP checks, no force pushes and no deletions.
-- Turn on GitHub Dependabot alerts, dependency security updates and secret scanning wherever available under the repository's Security settings.
-- GitHub protections and plan/visibility capabilities may vary; verify in the repository UI.
+## WhatsApp
+- Use the official Meta WhatsApp Business Platform rather than browser automation or consumer WhatsApp.
+- Business-initiated conversations require the appropriate approved template. Confirm actual marketing/utility classification with Meta and account pricing.
+- Do not send without documented permission/opt-in. The sheet defaults permission to **Unknown**, not Yes.
+- Correctly format numbers in E.164 format (`+91...`).
+- The bot is **not** activated just by committing code. Verify your approved sender/template and test with a single permissioned phone.
+- Queue only reviewed rows. A time-driven Google Apps Script worker must be intentionally installed. Stop with `stopWhatsAppQueueTrigger()` if needed.
+- Track API accepted IDs, failures and actual delivery via Meta webhooks if delivery confirmation is required. A provider-accepted send does not guarantee delivery.
 
-## Deployment and secrets
+## Website and passes
+- Keep Vercel Authentication enabled until the wedding website is ready for invitation holders.
+- `ADMIN_SECRET` is a temporary admin password. Long-term admin login with per-user MFA and check-in roles would be more secure.
+- Guest RSVP accepts only yes/no and confirmed count, bounded by the household's allocation.
+- For event entry, each confirmed slot gets a distinct opaque QR value. If a family reduces its attendance, existing extra QR credentials must be invalidated.
+- Restrict QR check-in to approved staff and block re-use on arrival.
+- Test repeated submits, lost connection recovery, check-in conflicts and normal operation on iOS/Android.
 
-- Use Vercel for both the website and its serverless API. **GitHub Pages alone is NOT sufficient** for this design.
-- Set `SUPABASE_SERVICE_ROLE_KEY`, `ADMIN_SECRET` and optional Google service-account secret as Vercel **server-side environment variables**; do not prefix them with `VITE_` or `NEXT_PUBLIC_`.
-- Use separate Supabase projects and deployment environments for testing and production.
-- Never expose a Supabase service-role key in any browser page, API response or public build. Rotate any key that is exposed.
-- Disable public deployment until end-to-end review and security tests pass.
-- Restrict preview access to staff and administrators.
-- Enable anti-abuse protection: endpoint rate limiting, CAPTCHA/challenge for suspicious requests, request-size limits and monitoring.
-- Use verified HTTPS and a known custom domain if desired.
-- The current administrator secret is shared, not per-user; replace with proper administrator login + MFA and scoped staff check-in roles before sending invitations.
-- Invitation URLs are bearer tokens: anyone with a forwarded link can update a household RSVP. Consider one-time phone verification or confirmation workflow if tamper prevention is required.
-- Do not use a guest's name or phone number as a QR credential.
-- QR credentials must be independently random, opaque, validated server-side, and cannot imply access merely from looking legitimate.
+## Data durability
+- Google Sheets version history alone is insufficient as disaster recovery. Configure and test independent encrypted daily backups, held in a separate restricted location.
+- Test at least one full restore before inviting real guests.
+- Export a controlled encrypted offline roster shortly before the event.
+- Define a retention/deletion policy after the wedding and do not keep phone numbers indefinitely.
 
-## Database protection
-
-- Supabase RLS must remain enabled on every guest-facing table. Only trusted server functions use service-role credentials.
-- Validate seat allocations, guest input and repeat submissions at the database boundary.
-- Restrict the database to the least required permissions and keep a private audit trail of administrative actions.
-- Test duplicate submissions, concurrency, maximum seat allocation, HTML injection, malformed requests and repeated check-in attempts.
-- The submitted prototype has not undergone penetration testing or a full security audit.
-
-## Backups and recovery
-
-**GitHub is NOT a database backup. Google Sheets is NOT a complete database backup.**
-
-- The Supabase free plan does not automatically back up the database; confirm current plan documentation.
-- Before live use, configure nightly *encrypted* PostgreSQL backups to a separate storage account with access restricted to the owner.
-- Use a managed plan with daily backups if you don't want to operate your own backup job.
-- Retain at least 14 daily backups and several weekly snapshots through the wedding, subject to privacy and retention needs.
-- Conduct an actual restore into an isolated test database, then compare counts, RSVP changes, guest passes and QR check-in status.
-- Export an encrypted offline copy shortly before the event, and a controlled guest roster for venue contingency.
-- Confirm India-related privacy obligations and inform guests about purpose and retention. Delete unnecessary guest data after the event.
-
-## Launch gates
-
-- [ ] Hosting and API deployment configured and tested
-- [ ] Database provisioned, RLS and stored procedure verified
-- [ ] Admin login with MFA / role separation implemented
-- [ ] Rate limits and anti-abuse controls implemented
-- [ ] Backup schedule configured and restoration tested
-- [ ] Source branch protection and CI verified
-- [ ] End-to-end test using test invitations, not real guest data
-- [ ] Real monogram asset integrated with explicit approval
-- [ ] Security, accessibility, and mobile-browser test passed
-- [ ] Owner approves launch
+## Operational launch gates
+- [ ] Verify 215 imported Wedding RSVP draft rows against original planning lists; confirm whether all ~700 attendees are represented
+- [ ] Add and validate recipient phone numbers; review party allocations
+- [ ] Document consent/permission (currently Unknown by default)
+- [ ] Configure and deploy the bound Google Apps Script Web App
+- [ ] Add its URL and shared secret to Vercel
+- [ ] Configure ADMIN_SECRET in Vercel
+- [ ] Test real RSVP updates and QR generation with a test record
+- [ ] Test website load and fail-closed behavior under invalid or missing credentials
+- [ ] Configure official WhatsApp Business sender + template; verify pricing
+- [ ] Send one permissioned test WhatsApp; inspect both WhatsApp status and Google Sheet
+- [ ] Install the queue trigger only after approval
+- [ ] Configure daily backups and test restore
+- [ ] Remove Vercel Authentication only when approved for guests
