@@ -4,7 +4,7 @@
 
 ## Existing Google Sheets workbook
 
-[Pinak Wedding Guest List](https://docs.google.com/spreadsheets/d/1ArjWx2O7oWBgavf0UL86EmEE2kxDp9V6CEDxxDoiYCY/edit), new tab: **Wedding RSVP Register** (16 columns). The existing `Wedding`, `All`, and other planning tabs are preserved.
+[Pinak Wedding Guest List](https://docs.google.com/spreadsheets/d/16GXb7qaM1fccfM4OYOeyiRZAoAx4XfVC_jPDPYPRlVc/edit), dedicated file and tab: **Invitations & RSVP** (16 columns). It contains 215 copied entries and a blank **Contact Detail / WhatsApp Number** column. The original `Wedding` and `All` planning tabs remain in the source workbook.
 
 Enter one row per invitation/household with **Guest / Household Name**, **WhatsApp Number (+country code)**, **Maximum Guests** and **Opt-in / Permission = Yes** if the invitee has agreed to receive WhatsApp messages. The original Wedding worksheet has names and headcounts arranged in separate groups; **do not assume its numeric counts are telephone numbers.** Review/transfer contacts manually until a reliable phone-number source is identified.
 
@@ -26,7 +26,7 @@ The service fills Invite ID, unique secret Invitation Token, RSVP URL, and statu
 
 ## Step 2 — Prepare personalized links
 
-Populate and review names, E.164 numbers, and maximum invited guests in **Wedding RSVP Register**. Use the private `/admin.html` dashboard to click **Generate private links** (not a send action). Each row receives a random token and a named URL, without exposing anyone else's data. Test a single Yes and No response and confirm that the sheet updates, then verify QR PNG downloads and check-in code validation. Verify duplicate submissions and limits.
+Populate and review names, E.164 numbers, and maximum invited guests in **Invitations & RSVP**. Use the private `/admin.html` dashboard to click **Generate private links** (not a send action). Each row receives a random token and a named URL, without exposing anyone else's data. Test a single Yes and No response and confirm that the sheet updates, then verify QR PNG downloads and check-in code validation. Verify duplicate submissions and limits.
 
 ## Step 3 — WhatsApp Business integration (owner action)
 
@@ -69,3 +69,14 @@ A second option for a controlled one-person test is `/admin.html` > Send one (re
 - No WhatsApp messages have been sent by this repository change. Sending requires explicit account configuration, consent, approved templates, and activation.
 - Native Apple Wallet / Google Wallet passes are not issued. Guests can save a PNG QR ticket to Photos.
 - Do not invite real guests until the complete end-to-end system has been tested and approved.
+
+## Linked to the original guest list
+
+The **new Invitations & RSVP file** is the only RSVP write destination. The existing [Pinak Wedding Guest List](https://docs.google.com/spreadsheets/d/1ArjWx2O7oWBgavf0UL86EmEE2kxDp9V6CEDxxDoiYCY/edit) contains two link tabs:
+
+- `RSVP Source Sync`: an `IMPORTRANGE` of the new file's hidden `RSVP Sync Feed` (Invite ID, Yes/No status, confirmed count, update time and checked-in count, but no phone numbers, invitation tokens or QR codes).
+- `Wedding RSVP Register`: original imported reference of the Wedding tab. It now displays status, confirmed headcount, response timestamp, and check-ins by stable `WED-<source cell>` IDs using VLOOKUP formulas, not name-based matching.
+
+**One-time required Google authorization**: Open the original guest-list workbook, go to `RSVP Source Sync!A1`, and click **Allow access** on the `#REF!` / `IMPORTRANGE` cell. Without this, the displayed RSVP statuses in the original workbook remain fallback values. The source workbook's Wedding and All tabs have not been changed.
+
+Each imported row has its original source cell in the Notes column. Review missing invitees and phone numbers before messaging anyone. No WhatsApp messages have been sent.
