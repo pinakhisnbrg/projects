@@ -23,6 +23,14 @@ function passes(v){try{const p=JSON.parse(String(v[H.PASSES]||'[]'));return Arra
 function updatePasses(v,count){const old=passes(v),p=[];for(let i=0;i<count;i++){const previous=old[i];p.push(previous&&previous.code?previous:{code:secureToken(),checked:false})}return p;}
 function callHandler(a){
  const s=data();
+ if(a.action==='design_read'){
+   try{return JSON.parse(prop('WEDDING_DESIGN_JSON')||'null')}catch{return null}
+ }
+ if(a.action==='design_write'){
+   if(!a.design||typeof a.design!=='object')throw Error('INVALID_DESIGN');
+   PropertiesService.getScriptProperties().setProperty('WEDDING_DESIGN_JSON',JSON.stringify(a.design).slice(0,7000));
+   return {saved:true};
+ }
  if(a.action==='lookup'){
   const row=rowByToken(s,a.token),v=s.getRange(row,1,1,16).getValues()[0];
   return {guest:sanitized(v),passes:passes(v).map((p,i)=>({slot:i+1,checked:!!p.checked})),ready:true};
